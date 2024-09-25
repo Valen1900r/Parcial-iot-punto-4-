@@ -1,0 +1,233 @@
+[
+    {
+        "id": "a660c1a590a4ba55",
+        "type": "tab",
+        "label": "Flow 6",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "inject_sim",
+        "type": "inject",
+        "z": "a660c1a590a4ba55",
+        "name": "Simulación Movimiento",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "5",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 150,
+        "y": 140,
+        "wires": [
+            [
+                "function_sim"
+            ]
+        ]
+    },
+    {
+        "id": "function_sim",
+        "type": "function",
+        "z": "a660c1a590a4ba55",
+        "name": "Generar Detección Aleatoria",
+        "func": "const areas = [\n    \"Llegada de ambulancias\",\n    \"Entrega de medicamentos nuevos\",\n    \"Personas fallecidas\",\n    \"UCI\",\n    \"Triage\",\n    \"Aislamiento 1\",\n    \"Aislamiento 2\",\n    \"Aislamiento 3\",\n    \"Aislamiento 4\",\n    \"Bodega de suministro\",\n    \"Rayos X\",\n    \"Unidad de recién nacidos\",\n    \"Mantenimiento de equipos\",\n    \"Resultados de exámenes de sangre\",\n    \"Farmacia\",\n    \"Helipuerto\",\n    \"Auditorio\",\n    \"Bebedero automático\",\n    \"Quimioterapia\",\n    \"Parqueadero\"\n];\n\nconst randomIndex = Math.floor(Math.random() * areas.length);\nmsg.payload = { area: areas[randomIndex], timestamp: new Date().toISOString() };\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 320,
+        "y": 40,
+        "wires": [
+            [
+                "function_store"
+            ]
+        ]
+    },
+    {
+        "id": "function_store",
+        "type": "function",
+        "z": "a660c1a590a4ba55",
+        "name": "Almacenar Movimiento",
+        "func": "var areas = global.get('movimientoAreas') || {};\nif (!areas[msg.payload.area]) {\n    areas[msg.payload.area] = [];\n}\nareas[msg.payload.area].push(msg.payload.timestamp);\nglobal.set('movimientoAreas', areas);\nmsg.payload = areas;\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 520,
+        "y": 140,
+        "wires": [
+            [
+                "function_format"
+            ]
+        ]
+    },
+    {
+        "id": "function_format",
+        "type": "function",
+        "z": "a660c1a590a4ba55",
+        "name": "Formatear Respuesta en HTML",
+        "func": "// Formatear datos para respuesta en HTML\nlet areas = global.get('movimientoAreas') || {};\nlet html = '<html><body><h1>Registro de Movimiento por Área</h1><table border=\"1\"><tr><th>Área</th><th>Tiempos de Detección</th></tr>';\n\n// Recorrer las áreas y crear filas en la tabla\nfor (let area in areas) {\n    html += '<tr><td>' + area + '</td><td>' + areas[area].join('<br/>') + '</td></tr>';\n}\n\nhtml += '</table></body></html>';\n\nmsg.payload = html;\nmsg.headers = { 'Content-Type': 'text/html' };\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 890,
+        "y": 120,
+        "wires": [
+            [
+                "http_response"
+            ]
+        ]
+    },
+    {
+        "id": "http_response",
+        "type": "http response",
+        "z": "a660c1a590a4ba55",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 1150,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "http_in",
+        "type": "http in",
+        "z": "a660c1a590a4ba55",
+        "name": "",
+        "url": "/movement",
+        "method": "get",
+        "upload": false,
+        "x": 600,
+        "y": 40,
+        "wires": [
+            [
+                "function_format"
+            ]
+        ]
+    },
+    {
+        "id": "http_stats_in",
+        "type": "http in",
+        "z": "a660c1a590a4ba55",
+        "name": "",
+        "url": "/stats",
+        "method": "get",
+        "upload": false,
+        "x": 120,
+        "y": 320,
+        "wires": [
+            [
+                "function_stats"
+            ]
+        ]
+    },
+    {
+        "id": "function_stats",
+        "type": "function",
+        "z": "a660c1a590a4ba55",
+        "name": "Calcular Estadísticas Diarias",
+        "func": "// Calcular estadísticas de movimiento\nlet areas = global.get('movimientoAreas') || {};\nlet stats = {};\nlet alerts = [];\n\n// Contar movimientos por área\nfor (let area in areas) {\n    let count = areas[area].length;\n    stats[area] = count;\n\n    // Generar alertas\n    if (area === \"Bebedero automático\" && count >= 20) {\n        alerts.push('BEBEDERO AUTOMATICO: POR FAVOR LIMPIAR URGENCIA URGENCIA');\n    }\n    if (area === \"Unidad de recién nacidos\" && count >= 30) {\n        alerts.push('AREA DE RECIEN NACIDOS: POR FAVOR IR A REVISAR EL REGISTRO DE QUIENES HAN ENTRADO Y CONTAR LOS BEBES, RAPIDOOO!');\n    }\n    if (area === \"Personas fallecidas\" && count >= 15) {\n        alerts.push('REVISAR LUGAR DE PERSONAS FALLECIDAS, POR QUE TANTAS VISITAS? REVISAR CAMARAS DE SEGURIDAD, BLOQUEAR ACCESO REVISAR ESTAS PERSONAS');\n    }\n}\n\nmsg.payload = { stats, alerts };\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 380,
+        "y": 280,
+        "wires": [
+            [
+                "function_format_stats"
+            ]
+        ]
+    },
+    {
+        "id": "function_format_stats",
+        "type": "function",
+        "z": "a660c1a590a4ba55",
+        "name": "Formatear Estadísticas en HTML",
+        "func": "// Formatear datos de estadísticas para respuesta en HTML\nlet stats = msg.payload.stats;\nlet alerts = msg.payload.alerts;\nlet html = '<html><body><h1>Estadísticas de Movimiento por Área</h1><table border=\"1\"><tr><th>Área</th><th>Total de Movimientos</th></tr>';\n\n// Recorrer las áreas y crear filas en la tabla de estadísticas\nfor (let area in stats) {\n    html += '<tr><td>' + area + '</td><td>' + stats[area] + '</td></tr>';\n}\n\nhtml += '</table>';\n\n// Agregar tabla de alertas\nif (alerts.length > 0) {\n    html += '<h2>Alertas Importantes</h2><table border=\"1\"><tr><th>Alertas</th></tr>';\n    alerts.forEach(alert => {\n        html += '<tr><td>' + alert + '</td></tr>';\n    });\n    html += '</table>';\n}\n\nhtml += '</body></html>';\n\nmsg.payload = html;\nmsg.headers = { 'Content-Type': 'text/html' };\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 740,
+        "y": 280,
+        "wires": [
+            [
+                "http_stats_response"
+            ]
+        ]
+    },
+    {
+        "id": "http_stats_response",
+        "type": "http response",
+        "z": "a660c1a590a4ba55",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 950,
+        "y": 180,
+        "wires": []
+    },
+    {
+        "id": "inject_reset",
+        "type": "inject",
+        "z": "a660c1a590a4ba55",
+        "name": "Resetear Movimiento",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 160,
+        "y": 400,
+        "wires": [
+            [
+                "function_reset"
+            ]
+        ]
+    },
+    {
+        "id": "function_reset",
+        "type": "function",
+        "z": "a660c1a590a4ba55",
+        "name": "Limpiar Datos Globales",
+        "func": "global.set('movimientoAreas', {});\nmsg.payload = 'Datos reiniciados.';\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 450,
+        "y": 400,
+        "wires": [
+            [
+                "http_response_reset"
+            ]
+        ]
+    },
+    {
+        "id": "http_response_reset",
+        "type": "http response",
+        "z": "a660c1a590a4ba55",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 750,
+        "y": 400,
+        "wires": []
+    }
+]
